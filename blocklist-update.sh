@@ -1,128 +1,108 @@
 #!/bin/bash
 
-##
-## Configuration
-##
-
-# Files which should be downloaded
-TO_DOWNLOAD[0]="http://lists.blocklist.de/lists/ftp.txt"
-#TO_DOWNLOAD[1]="http://lists.blocklist.de/lists/bots.txt"
-#TO_DOWNLOAD[2]="http://lists.blocklist.de/lists/ssh.txt"
-TO_DOWNLOAD[1]="http://lists.blocklist.de/lists/bruteforcelogin.txt"
-TO_DOWNLOAD[2]="http://lists.blocklist.de/lists/apache.txt"
+# The download path to the file which contains all the IP addresses
+TO_DOWNLOAD="https://lists.blocklist.de/lists/all.txt"
 
 # Other settings; Edit if necesarry
 CHAINNAME="blocklist-de"
-ACTION="REJECT" # Can be DROP
-PRINT_REPORT=1
+ACTION="DROP" # Can be DROP or REJECT
 IPTABLES_PATH="/sbin/iptables"
+IPSET_PATH="/sbin/ipset"
+SORT_PATH="/usr/bin/sort"
+MAIL_PATH="/usr/bin/mail"
+GREP_PATH="/bin/grep"
 
-########## Do not edit anything below this line ##########
+if [ -z $IPTABLES_PATH ]; then echo "Cannot find [ iptables ]. Is it installed? Exiting"; exit 1; fi;
+if [ -z $IPSET_PATH ]; then echo "Cannot find [ ipset ]. Is it installed? Exiting"; exit 1; fi;
+if [ -z $SORT_PATH ]; then echo "Cannot find [ sort ]. Is it installed? Exiting"; exit 1; fi;
+if [ -z $MAIL_PATH ]; then echo "Cannot find [ mail ]. Is it installed? Exiting"; exit 1; fi;
+if [ -z $GREP_PATH ]; then echo "Cannot find [ grep ]. Is it installed? Exiting"; exit 1; fi;
 
-#
-## Needed variables
-#
-started=`date`
-version="1.0.0"
-amountDownloaded=0
-amountAfterSortAndUnique=0
-amountInserted=0
-amountDeleted=-1
+# E-Mail variables
+MAILLOG="/var/log/blocklist-update.log"
+MAIL_SENDER="backupinfo" #this defines a system-user without a shell or password. It's used as the e-mail sender name. You can create one like this: useradd -M -N -s /usr/sbin/nologin myuser && passwd -d myuser
+MAIL_SUBJECT="ERROR - IP blocklist script failed to download the IP set"
+MAIL_RECIPIENTS="mail-recipient@yourdomain.tld" #send mail to multiple receipients by overgiving a space-seperated address list
 
-fileUnfiltered="/tmp/blocklist-ips-unfiltered.txt"
-fileFiltered="/tmp/blocklist-ips-filtered.txt"
+BLOCKLIST_FILE="/tmp/ip-blocklist.txt"
+BLOCKLIST_TMP_FILE="/tmp/ip-blocklist.txt.tmp"
 
-#
-## Download every file and concat to one file
-#
-for currentFile in "${TO_DOWNLOAD[@]}"
-do
-    wget -qO - $currentFile >> $fileUnfiltered
-done
+# Create a new MAILLOG from scratch. Do it the very simplest way possible
+rm -f $MAILLOG
+touch $MAILLOG
 
-#
-## Sort and filter
-#
-cat $fileUnfiltered | sort | uniq > $fileFiltered
+echo "" >>$MAILLOG
+echo "Downloading the most recent IP list from $TO_DOWNLOAD ..." >>$MAILLOG
+wgetOK=$(wget -qO - $TO_DOWNLOAD >> $BLOCKLIST_FILE) >>$MAILLOG 2>&1
+if [ $? -ne 0 ]; then
+	echo "Most recent IP blocklist could not be downloaded from $TO_DOWNLOAD" >>$MAILLOG
+	echo "Please check manually. The script calling this function: $0" >>$MAILLOG
+	echo "You can download and import the IP list manually like this:" >>$MAILLOG
+	echo "wget -qO - $TO_DOWNLOAD >> /tmp/blocklist-de.txt"
+	echo "for i in $( cat /tmp/blocklist-de.txt ); do ipset add $CHAINNAME $i; done" >>$MAILLOG
 
-amountDownloaded=`cat $fileUnfiltered | wc -l`
-amountAfterSortAndUnique=`cat $fileFiltered | wc -l`
+	### Sending warning e-mail and cancelling the update process
+	sudo -u $MAIL_SENDER /usr/bin/mail -s "$MAIL_SUBJECT" $MAIL_RECIPIENTS < $MAILLOG
 
-#
-## Create chain if it does not exist
-#
-$IPTABLES_PATH --new-chain $CHAINNAME >/dev/null 2>&1
+	### Exit with error in this case
+	exit 1
+fi
 
-# Insert rule (if necesarry) into INPUT chain so the chain above will also be used
+echo "" >>$MAILLOG
+echo "Parsing the downloaded file and filter out only IPv4 addresses ..." >>$MAILLOG
+grep -E -o "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)" $BLOCKLIST_FILE > $BLOCKLIST_TMP_FILE
+
+echo "" >>$MAILLOG
+echo "Removing duplicate IPs from the list ..." >>$MAILLOG
+sort -u $BLOCKLIST_TMP_FILE -o $BLOCKLIST_FILE >>$MAILLOG 2>&1
+rm $BLOCKLIST_TMP_FILE
+
+echo "" >>$MAILLOG
+echo "Setting up the ipset configuration by creating the '$CHAINNAME' IP set ..." >>$MAILLOG
+if [ `$IPSET_PATH list | grep "Name: $CHAINNAME" | wc -l` -eq 0 ]
+then
+        # Create the new ipset set
+	$IPSET_PATH create $CHAINNAME hash:ip maxelem 16777216 >>$MAILLOG 2>&1
+else
+	echo "ipset configuration already exists - Flushing and recreating the iptables/ipset configuration ..." >>$MAILLOG
+	# Reason: The kernel sometimes did not properly flush the ipset list which caused errors. Thus we remove the whole list and recreate it from scatch
+	$IPTABLES_PATH --flush $CHAINNAME >>$MAILLOG 2>&1
+	$IPSET_PATH flush $CHAINNAME >>$MAILLOG 2>&1
+	$IPSET_PATH destroy $CHAINNAME >>$MAILLOG 2>&1
+	$IPSET_PATH create $CHAINNAME hash:ip maxelem 16777216 >>$MAILLOG 2>&1
+fi
+
+echo "" >>$MAILLOG
+echo "Setting up the $CHAINNAME chain on iptables, if required..." >>$MAILLOG
+if [ `$IPTABLES_PATH -L -n | grep "Chain $CHAINNAME" | wc -l` -eq 0 ]
+then
+        # Create the iptables chain
+	$IPTABLES_PATH --new-chain $CHAINNAME >>$MAILLOG 2>&1
+fi
+
+echo "" >>$MAILLOG
+echo "Inserting the new chain $CHAINNAME into iptables INPUT, if required" >>$MAILLOG
+# Insert rule (if necesarry) into the INPUT chain so the chain above will also be used
 if [ `$IPTABLES_PATH -L INPUT | grep $CHAINNAME | wc -l` -eq 0 ]
 then
-
-	# Insert rule because it is not present
-	$IPTABLES_PATH -I INPUT -j $CHAINNAME
-
+        # Insert rule because it is not present
+	$IPTABLES_PATH -I INPUT -j $CHAINNAME >>$MAILLOG 2>&1
 fi
 
-#
-## Insert all IPs from the downloaded list if there is no rule stored
-#
-while read currentIP
-do
-
-    # Check via command
-    $IPTABLES_PATH -C $CHAINNAME -s $currentIP -j $ACTION >/dev/null 2>&1
-
-    # Now we have to check the exit code of iptables via $?
-    #
-    # 0 = rule exists and don't has to be stored again
-    # 1 = rule does not exist and has to be stored
-
-    if [ $? -eq 1 ]
-    then
-
-        # Append the IP
-        $IPTABLES_PATH -A $CHAINNAME -s $currentIP -j $ACTION >/dev/null 2>&1
-
-        # Increment the counter
-        amountInserted=$((amountInserted + 1))
-
-    fi
-
-done < $fileFiltered
-
-## Now we delete the IPs which are stored in iptables but not anymore in the list
-while read currentIP
-do
-    # Check if the ip is in the downloaded list
-    if [ `cat $fileFiltered | grep $currentIP | wc -l` -eq 0 ]
-    then
-        # Delete the rule by its rulenumber
-        # Because changing the action would result in errors
-        $IPTABLES_PATH -D $CHAINNAME -s $currentIP -j $ACTION >/dev/null 2>&1
-
-    # Increment the counter
-    amountDeleted=$((amountDeleted + 1))
-
-fi
-
-done <<< "`$IPTABLES_PATH -n -L blocklist-de | awk '{print $4}'`"
-
-## Print report
-if [ $PRINT_REPORT -eq 1 ]
+# Create rule (if necesarry) into the $CHAINNAME
+echo "" >>$MAILLOG
+echo "Creating the firewall rule, if required..." >>$MAILLOG
+if [ `$IPTABLES_PATH -L $CHAINNAME | grep REJECT | wc -l` -eq 0 ]
 then
-    echo "--- Blockliste.de :: Update-Report"
-    echo ""
-    echo "Script Version:     $version"
-    echo "Started:            $started"
-    echo "Finished:           `date`"
-    echo ""
-    echo "--> Downloaded IPs: $amountDownloaded"
-    echo "--> Unique IPs:     $amountAfterSortAndUnique"
-    echo "--> Inserted:       $amountInserted"
-    echo "--> Deleted:        $amountDeleted"
+	# Create the one and only firewall rule
+	$IPTABLES_PATH -I $CHAINNAME -m set --match-set $CHAINNAME src -j $ACTION >>$MAILLOG 2>&1
 fi
 
-#
-## Cleanup
-#
-rm -f /tmp/blocklist-ips-unfiltered.txt
-rm -f /tmp/blocklist-ips-filtered.txt
+## Read all IPs from the downloaded IP list and fill up the ipset filter set
+echo "" >>$MAILLOG
+echo "Importing the IP list into the IP set..." >>$MAILLOG
+for i in $( cat $BLOCKLIST_FILE ); do $IPSET_PATH add $CHAINNAME $i >>$MAILLOG 2>&1; done
+
+echo "" >>$MAILLOG
+echo "Done." >>$MAILLOG
+sudo -u $MAIL_SENDER $MAIL_PATH -s "SUCCESS - IP blocklist script has updated the IP set with the newest IP list" $MAIL_RECIPIENTS < $MAILLOG
