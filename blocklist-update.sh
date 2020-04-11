@@ -97,6 +97,8 @@ then
 	# Create the one and only firewall rule
 	$IPTABLES_PATH -I $CHAINNAME -m set --match-set $CHAINNAME src -j $ACTION >>$MAILLOG 2>&1
 fi
+echo "Adding the return statement to the chain. We do not want to accept a non-matching ip; think about fail2ban" >>$MAILLOG
+$IPTABLES_PATH -A $CHAINNAME -j RETURN >>$MAILLOG 2>&1
 
 ## Read all IPs from the downloaded IP list and fill up the ipset filter set
 echo "" >>$MAILLOG
