@@ -12,15 +12,15 @@ SORT_PATH="/usr/bin/sort"
 MAIL_PATH="/usr/bin/mail"
 GREP_PATH="/bin/grep"
 
-if [ -z $IPTABLES_PATH ]; then echo "Cannot find [ iptables ]. Is it installed? Exiting"; exit 1; fi;
-if [ -z $IPSET_PATH ]; then echo "Cannot find [ ipset ]. Is it installed? Exiting"; exit 1; fi;
-if [ -z $SORT_PATH ]; then echo "Cannot find [ sort ]. Is it installed? Exiting"; exit 1; fi;
-if [ -z $MAIL_PATH ]; then echo "Cannot find [ mail ]. Is it installed? Exiting"; exit 1; fi;
-if [ -z $GREP_PATH ]; then echo "Cannot find [ grep ]. Is it installed? Exiting"; exit 1; fi;
+if [ -f $IPTABLES_PATH ]; then echo "iptables OK"; else echo "Cannot find [ iptables ]. Is it installed? Exiting"; exit 1; fi;
+if [ -f $IPSET_PATH ]; then echo "ipset OK"; else echo "Cannot find [ ipset ]. Is it installed? Exiting"; exit 1; fi;
+if [ -f $SORT_PATH ]; then echo "sort OK"; else echo "Cannot find [ sort ]. Is it installed? Exiting"; exit 1; fi;
+if [ -f $MAIL_PATH ]; then echo "mail OK"; else echo "Cannot find [ mail ]. Is it installed? Exiting"; exit 1; fi;
+if [ ! -f $GREP_PATH ]; then echo "Cannot find [ grep ]. Is it installed? Exiting"; exit 1; fi;
 
 # E-Mail variables
 MAILLOG="/var/log/blocklist-update.log"
-MAIL_SENDER="backupinfo" #this defines a system-user without a shell or password. It's used as the e-mail sender name. You can create one like this: useradd -M -N -s /usr/sbin/nologin myuser && passwd -d myuser
+MAIL_SENDER=$(whoami) #this defines a system-user without a shell or password. It's used as the e-mail sender name. You can create one like this: useradd -M -N -s /usr/sbin/nologin myuser && passwd -d myuser
 MAIL_SUBJECT="ERROR - IP blocklist script failed to download the IP set"
 MAIL_RECIPIENTS="mail-recipient@yourdomain.tld" #send mail to multiple receipients by overgiving a space-seperated address list
 
