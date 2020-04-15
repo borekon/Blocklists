@@ -13,6 +13,7 @@ MAIL_PATH="/usr/bin/mail"
 GREP_PATH="/bin/grep"
 
 if [ -f $IPTABLES_PATH ]; then echo "iptables OK"; else echo "Cannot find [ iptables ]. Is it installed? Exiting"; exit 1; fi;
+#hash iptables 2>/dev/null || { echo >&2 "I require iptables but it's not installed.  Aborting."; exit 1; }
 if [ -f $IPSET_PATH ]; then echo "ipset OK"; else echo "Cannot find [ ipset ]. Is it installed? Exiting"; exit 1; fi;
 if [ -f $SORT_PATH ]; then echo "sort OK"; else echo "Cannot find [ sort ]. Is it installed? Exiting"; exit 1; fi;
 if [ -f $MAIL_PATH ]; then echo "mail OK"; else echo "Cannot find [ mail ]. Is it installed? Exiting"; exit 1; fi;
