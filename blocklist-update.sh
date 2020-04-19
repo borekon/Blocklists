@@ -17,7 +17,7 @@ if [ -f $IPTABLES_PATH ]; then echo "iptables OK"; else echo "Cannot find [ ipta
 #more in https://stackoverflow.com/questions/592620/how-can-i-check-if-a-program-exists-from-a-bash-script
 if [ -f $IPSET_PATH ]; then echo "ipset OK"; else echo "Cannot find [ ipset ]. Is it installed? Exiting"; exit 1; fi;
 if [ -f $SORT_PATH ]; then echo "sort OK"; else echo "Cannot find [ sort ]. Is it installed? Exiting"; exit 1; fi;
-if [ -f $MAIL_PATH ]; then echo "mail OK"; else echo "Cannot find [ mail ]. Is it installed? Exiting"; exit 1; fi;
+if [ -f $MAIL_PATH ]; then echo "mail OK"; else echo "Cannot find [ mail ]. Is it installed? Try apt install bsd-mailx. Exiting"; exit 1; fi;
 if [ ! -f $GREP_PATH ]; then echo "Cannot find [ grep ]. Is it installed? Exiting"; exit 1; fi;
 
 # E-Mail variables
