@@ -25,7 +25,7 @@ MAILLOG="/var/log/blocklist-update.log"
 MAIL_SENDER=$(whoami) #this defines a system-user without a shell or password. It's used as the e-mail sender name. You can create one like this: useradd -M -N -s /usr/sbin/nologin myuser && passwd -d myuser
 MAIL_SUBJECT="ERROR - IP blocklist script failed to download the IP set"
 read -t 15 -p "Insert a mail to send the log. Separate with space to send to multiple recipients: " MAIL_RECIPIENTS
-if [ ! $MAIL_RECIPIENTS ]; then MAIL_RECIPIENTS="$(whoami)@$(HOSTNAME)"; else echo "Address: " $MAIL_RECIPIENTS; fi;
+if [ ! "$MAIL_RECIPIENTS" ]; then MAIL_RECIPIENTS="$(whoami)@$(HOSTNAME)"; else echo "Address: " $MAIL_RECIPIENTS; fi;
 
 BLOCKLIST_FILE="/tmp/ip-blocklist.txt"
 BLOCKLIST_TMP_FILE="/tmp/ip-blocklist.txt.tmp"
