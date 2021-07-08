@@ -18,7 +18,7 @@ if [ ! -f $GREP_PATH ]; then echo "Cannot find [ grep ]. Is it installed? Exitin
 echo "Downloading the most recent IP list from $BLOCKLISTDE ... and adding them to ipset blocklistde"
 ipset create blocklistde hash:ip
 curl -s https://lists.blocklist.de/lists/all.txt | grep -E -o "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)" | xargs -L1 ipset add blocklistde 2>&1
-echo "Downloading the most recent IP list from $BLOCKLISTDE ... and adding them to ipset crawlers"
+echo "Downloading the most recent IP list from $CRWALERS ... and adding them to ipset crawlers"
 ipset create crawler_bots hash:ip
 curl -s https://isc.sans.edu/api/threatcategory/research?json | jq '.[] | {ipv4}' | grep ':' | awk '{ print $2 }' | tr -d '"' | xargs -L1 ipset add crawler_bots 2>&1
 echo "Adding the iptables rules..."
