@@ -7,7 +7,7 @@ if [ "$(whoami)" == "root" ]; then echo "root ok"; else echo "run as root!"; exi
 BLOCKLISTDE="https://lists.blocklist.de/lists/all.txt"
 CRWALERS="https://isc.sans.edu/api/threatcategory/research?json"
 ABUSE="https://api.abuseipdb.com/api/v2/blacklist"
-abuse_key="INERT_YOUR_API_KEY_HERE"
+abuse_key="INSERT_YOUR_API_KEY_HERE" #https://www.abuseipdb.com/account/api
 
 
 
