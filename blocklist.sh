@@ -6,6 +6,9 @@ if [ "$(whoami)" == "root" ]; then echo "root ok"; else echo "run as root!"; exi
 #GREP_PATH=$(whereis grep | awk '{print $2}')
 BLOCKLISTDE="https://lists.blocklist.de/lists/all.txt"
 CRWALERS="https://isc.sans.edu/api/threatcategory/research?json"
+ABUSE="https://api.abuseipdb.com/api/v2/blacklist"
+abuse_key="INSERT_YOUR_API_KEY_HERE" #https://www.abuseipdb.com/account/api
+
 
 
 #if [ -f $IPTABLES_PATH ]; then echo "iptables OK"; else echo "Cannot find [ iptables ]. Is it installed? Exiting"; exit 1; fi;
@@ -22,9 +25,13 @@ if ! command -v grep >/dev/null; then  echo "I require grep but it's not install
 echo "Downloading the most recent IP list from $BLOCKLISTDE ... and adding them to ipset blocklistde"
 ipset create blocklistde hash:ip
 curl -s https://lists.blocklist.de/lists/all.txt | grep -E -o "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)" | xargs -L1 ipset add blocklistde 2>&1
-echo "Downloading the most recent IP list from $CRWALERS ... and adding them to ipset crawlers"
+echo "Downloading the most recent IP list from $CRWALERS ... and adding them to ipset crawler_bots"
 ipset create crawler_bots hash:ip
 curl -s https://isc.sans.edu/api/threatcategory/research?json | jq '.[] | {ipv4}' | grep ':' | awk '{ print $2 }' | tr -d '"' | xargs -L1 ipset add crawler_bots 2>&1
+echo "Downloading the most recent IP list from $ABUSE and adding them to abuseipdb"
+ipset create abuseipdb hash:ip
+curl -s -H "key: $abuse_key" https://api.abuseipdb.com/api/v2/blacklist | grep -E -o "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)" | xargs -L1 ipset add abuseipdb 2>&1
 echo "Adding the iptables rules..."
 iptables -I INPUT -m set --match-set crawler_bots src -j DROP
 iptables -I INPUT -m set --match-set blocklistde src -j DROP
+iptables -I INPUT -m set --match-set abuseipdb src -j DROP
