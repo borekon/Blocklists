@@ -1,5 +1,6 @@
 #!/bin/bash
 if [ "$(whoami)" == "root" ]; then echo "root ok"; else echo "run as root!"; exit 1; fi;
+apt update && apt install -y iptables jq ipset coreutils grep
 IPTABLES_PATH=$(whereis iptables | awk '{print $2}')
 IPSET_PATH=$(whereis ipset | awk '{print $2}')
 SORT_PATH=$(whereis sort | awk '{print $2}')
