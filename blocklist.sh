@@ -32,6 +32,7 @@ echo "Downloading the most recent IP list from $ABUSE and adding them to abuseip
 ipset create abuseipdb hash:ip
 curl -s -H "key: $abuse_key" https://api.abuseipdb.com/api/v2/blacklist | grep -E -o "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)" | xargs -L1 ipset add abuseipdb 2>&1
 echo "Adding the iptables rules..."
-iptables -I INPUT -m set --match-set crawler_bots src -j DROP
-iptables -I INPUT -m set --match-set blocklistde src -j DROP
-iptables -I INPUT -m set --match-set abuseipdb src -j DROP
+$(whereis iptables | cut -d" " -f 2) -I INPUT -m set --match-set crawler_bots src -j DROP
+#iptables -I INPUT -m set --match-set crawler_bots src -j DROP
+$(whereis iptables | cut -d" " -f 2) -I INPUT -m set --match-set blocklistde src -j DROP
+$(whereis iptables | cut -d" " -f 2) -I INPUT -m set --match-set abuseipdb src -j DROP
