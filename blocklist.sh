@@ -11,18 +11,19 @@ CRWALERS="https://isc.sans.edu/api/threatcategory/research?json"
 ABUSE="https://api.abuseipdb.com/api/v2/blacklist"
 abuse_key="INSERT_YOUR_API_KEY_HERE" #https://www.abuseipdb.com/account/api
 
+installed() {
+    # $1 should be the command to look for
+    if ! [ -x "$(command -v $1)" ]; then
+        echo "$1 is not available. Please install it and run again."
+        exit 1
+    fi
+}
 
-
-if [ -f $IPTABLES_PATH ]; then echo "iptables OK"; else "I require iptables but it's not installed."; apt install -y iptables; fi;
-#if ! command -v iptables >/dev/null; then  echo "I require iptables but it's not installed."; apt install -y iptables; else echo "iptables OK"; fi;
-if [ -f $IPSET_PATH ]; then echo "ipset OK"; else echo "I require ipset but it's not installed."; apt install -y ipset; fi;
-#if ! command -v ipset >/dev/null; then  echo "I require ipset but it's not installed."; apt install -y ipset; else echo "ipset OK"; fi;
-if [ -f $SORT_PATH ]; then echo "sort OK"; else echo "Cannot find [ sort ]. Is it installed? Exiting"; exit 1; fi;
-#if ! command -v sort >/dev/null; then  echo "I require sort but it's not installed."; else echo "sort OK"; fi;
-if [ -x $JQ_PATH ]; then echo "jq OK"; else echo "jq not installed, installing"; apt install -y jq; fi;
-#if ! command -v jq >/dev/null; then  echo "I require jq but it's not installed."; apt install -y jq; fi;  
-if [ -f $GREP_PATH ]; then echo "grep OK"; else echo "Cannot find [ grep ]. Installing..."; apt install -y grep; fi;
-#if ! command -v grep >/dev/null; then  echo "I require grep but it's not installed."; apt install -y grep; else echo "grep OK"; fi;
+installed iptables
+installed ipset
+installed sort
+installed jq
+installed grep
 
 echo "Downloading the most recent IP list from $BLOCKLISTDE ... and adding them to ipset blocklistde"
 $(whereis ipset | cut -d" " -f 2) create blocklistde hash:ip
