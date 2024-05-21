@@ -1,2 +1,4 @@
-0.0.0.0 mondaytoyoulive.lat
-0.0.0.0 randomwalk.site
+||mondaytoyoulive.lat^
+||randomwalk.site^
+||ksvolfnt.com^
+||officialllinehub.com^
