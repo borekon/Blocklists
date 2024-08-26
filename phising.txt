@@ -13,3 +13,4 @@
 0.0.0.0 natfatschool.monster
 0.0.0.0 amck.us.com
 0.0.0.0 dissolutegal78h.com
+0.0.0.0 geno.link
