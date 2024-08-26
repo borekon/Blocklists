@@ -14,3 +14,5 @@
 0.0.0.0 amck.us.com
 0.0.0.0 dissolutegal78h.com
 0.0.0.0 geno.link
+0.0.0.0 scaredframe.com
+0.0.0.0 *.buzz
