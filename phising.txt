@@ -15,4 +15,5 @@
 0.0.0.0 dissolutegal78h.com
 0.0.0.0 geno.link
 0.0.0.0 scaredframe.com
-0.0.0.0 *.buzz
+0.0.0.0 teiegram.fit
+0.0.0.0 taiegram.vip
