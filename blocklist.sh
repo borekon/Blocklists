@@ -1,50 +1,52 @@
 #!/bin/bash
-RED='\033[1;31m'
-GREEN='\033[1;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[1;35m'
-NC='\033[0m'
-if [ "$(whoami)" != "root" ]; then
-    SUDO=sudo
+# Actualiza una lista de bloqueo ipset desde múltiples fuentes
+
+SET_NAME="blacklist"
+TMP_SET="${SET_NAME}_tmp"
+
+# Listas de bloqueo (puedes añadir más URLs aquí)
+LISTS=(
+    "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset"
+    "https://www.spamhaus.org/drop/drop.txt"
+    "https://www.spamhaus.org/drop/edrop.txt"
+    "https://lists.blocklist.de/lists/all.txt"
+)
+
+# Crear set principal si no existe
+if ! ipset list -n | grep -q "^$SET_NAME\$"; then
+    ipset create $SET_NAME hash:ip family inet hashsize 4096 maxelem 65536
 fi
-#if [ "$(whoami)" == "root" ]; then echo "root ok"; else echo "run as root!"; exit 1; fi;
-#apt update && apt install -y iptables jq ipset coreutils grep
-IPTABLES_PATH=$(whereis iptables | awk '{print $2}')
-IPSET_PATH=$(whereis ipset | awk '{print $2}')
-SORT_PATH=$(whereis sort | awk '{print $2}')
-GREP_PATH=$(whereis grep | awk '{print $2}')
-JQ_PATH=$(whereis jq | awk '{print $2}')
-BLOCKLISTDE="https://lists.blocklist.de/lists/all.txt"
-CRWALERS="https://isc.sans.edu/api/threatcategory/research?json"
-ABUSE="https://api.abuseipdb.com/api/v2/blacklist"
-abuse_key="INSERT_YOUR_API_KEY_HERE" #https://www.abuseipdb.com/account/api
 
-installed() {
-    # $1 should be the command to look for
-    if ! [ -x "$(command -v $1)" ]; then
-        echo -e "${RED}$1 is not available. Please install it and run again.${NC}"
-        exit 1
-        else
-        echo -e "${GREEN}$1 installed${NC}"
-    fi
-}
+# Crear set temporal
+ipset create $TMP_SET hash:ip family inet hashsize 4096 maxelem 65536
 
-installed iptables
-installed ipset
-installed sort
-installed jq
-installed grep
+# Descargar y cargar IPs
+for url in "${LISTS[@]}"; do
+    echo "Descargando: $url"
+    curl -s "$url" | grep -Eo '^[0-9.]+(/[0-9]+)?' | while read ip; do
+        ipset add $TMP_SET $ip 2>/dev/null
+    done
+done
 
-echo -e "${YELLOW}Downloading the most recent IP list from $BLOCKLISTDE ... and adding them to ipset blocklistde${NC}"
-${SUDO} $(whereis ipset | cut -d" " -f 2) create blocklistde hash:ip
-curl -s https://lists.blocklist.de/lists/all.txt | grep -E -o "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)" | xargs -L1 ${SUDO} $IPSET_PATH add blocklistde 2>&1
-echo -e "${YELLOW}Downloading the most recent IP list from $CRWALERS ... and adding them to ipset crawler_bots${NC}"
-${SUDO} $(whereis ipset | cut -d" " -f 2) create crawler_bots hash:ip
-curl -s https://isc.sans.edu/api/threatcategory/research?json | jq '.[] | {ipv4}' | grep ':' | awk '{ print $2 }' | tr -d '"' | xargs -L1 ${SUDO} $IPSET_PATH add crawler_bots 2>&1
-echo -e "${YELLOW}Downloading the most recent IP list from $ABUSE and adding them to abuseipdb${NC}"
-${SUDO} $(whereis ipset | cut -d" " -f 2) create abuseipdb hash:ip
-curl -G -H "key: $abuse_key" -H "Accept: text/plain" -d confidenceMinimum=90 https://api.abuseipdb.com/api/v2/blacklist | grep -v : | xargs -L1 ${SUDO} $IPSET_PATH add abuseipdb 2>&1
-echo -e "${YELLOW}Adding the iptables rules...${NC}"
-${SUDO} $IPTABLES_PATH -I INPUT -m set --match-set crawler_bots src -j DROP
-${SUDO} $IPTABLES_PATH -I INPUT -m set --match-set blocklistde src -j DROP
-${SUDO} $IPTABLES_PATH -I INPUT -m set --match-set abuseipdb src -j DROP
+# Reemplazar el set viejo por el nuevo
+ipset swap $SET_NAME $TMP_SET
+ipset destroy $TMP_SET
+
+# Bloqueo antes de DNAT → tabla raw PREROUTING
+if ! iptables -t raw -C PREROUTING -m set --match-set $SET_NAME src -j DROP 2>/dev/null; then
+    iptables -t raw -I PREROUTING 1 -m set --match-set $SET_NAME src -j DROP
+    echo "Regla añadida en tabla raw PREROUTING para bloquear antes de DNAT"
+else
+    echo "La regla en tabla raw PREROUTING ya existe."
+fi
+
+# Añadir regla de iptables si no existe
+if ! iptables -C INPUT -m set --match-set $SET_NAME src -j DROP 2>/dev/null; then
+    iptables -I INPUT -m set --match-set $SET_NAME src -j DROP
+    echo "Regla añadida a iptables: DROP tráfico desde $SET_NAME"
+else
+    echo "La regla de iptables ya existe."
+fi
+
+
+echo "Actualización completada: $(ipset list $SET_NAME | grep -c '^[0-9]') IPs bloqueadas."
